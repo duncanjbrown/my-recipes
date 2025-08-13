@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>MyRecipes</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body {
+            font-family: serif;
+            margin: 0;
+            padding: 0;
+            background: white;
+            color: black;
+        }
+        
+        .container {
+            display: flex;
+            height: 100vh;
+        }
+        
+        .left-pane {
+            width: 50%;
+            border-right: 2px solid black;
+            padding: 20px;
+            box-sizing: border-box;
+            overflow-y: auto;
+        }
+        
+        .right-pane {
+            width: 50%;
+            padding: 20px;
+            box-sizing: border-box;
+            overflow-y: auto;
+        }
+        
+        h1, h2 {
+            margin-top: 0;
+            font-weight: bold;
+            text-decoration: underline;
+        }
+        
+        .recipe-item {
+            border: 2px solid black;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: white;
+        }
+        
+        .recipe-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        
+        .recipe-url {
+            font-size: 14px;
+            word-break: break-all;
+            margin-bottom: 10px;
+            color: blue;
+            text-decoration: underline;
+        }
+        
+        .recipe-ingredients {
+            font-size: 14px;
+            margin-bottom: 10px;
+        }
+        
+        .recipe-ingredients ul {
+            margin: 0;
+            padding-left: 20px;
+        }
+        
+        .no-recipes {
+            text-align: center;
+            font-style: italic;
+            margin-top: 50px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="left-pane">
+            <h1>RECIPES</h1>
+            
+            {% if recipes %}
+                {% for recipe in recipes %}
+                    <div class="recipe-item">
+                        <div class="recipe-title">{{ recipe.title }}</div>
+                        
+                        {% if recipe.url %}
+                            <div class="recipe-url">{{ recipe.url }}</div>
+                        {% endif %}
+                        
+                        {% if recipe.ingredients %}
+                            <div class="recipe-ingredients">
+                                <strong>INGREDIENTS:</strong>
+                                <ul>
+                                {% for ingredient in recipe.ingredients %}
+                                    <li>{{ ingredient }}</li>
+                                {% endfor %}
+                                </ul>
+                            </div>
+                        {% endif %}
+                        
+                        {% if recipe.instructions %}
+                            <div class="recipe-instructions">
+                                <strong>INSTRUCTIONS:</strong><br>
+                                {{ recipe.instructions }}
+                            </div>
+                        {% endif %}
+                    </div>
+                {% endfor %}
+            {% else %}
+                <div class="no-recipes">
+                    NO RECIPES FOUND
+                </div>
+            {% endif %}
+        </div>
+        
+        <div class="right-pane">
+            <h1>RECIPE LISTS</h1>
+            <div style="text-align: center; font-style: italic; margin-top: 50px;">
+                COMING SOON
+            </div>
+        </div>
+    </div>
+</body>
+</html>

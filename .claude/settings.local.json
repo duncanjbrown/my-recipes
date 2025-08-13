@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir:*)",
+      "Bash(python -m pytest test_recipes.py -v)",
+      "Bash(python3 -m pytest test_recipes.py -v)",
+      "Bash(uv sync:*)",
+      "Bash(uv run pytest:*)"
+    ],
+    "deny": []
+  }
+}

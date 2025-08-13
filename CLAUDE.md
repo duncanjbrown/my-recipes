@@ -12,7 +12,11 @@ It should use SQLite for the database but we will replace this with PostgreSQL l
 
 This application should be pure python, rendered server-side.
 
+We use uv for dependency management.
+
 Recipes should be fetched using https://github.com/hhursev/recipe-scrapers.
+
+Run the tests using `uv run pytest`.
 
 ## Technical approach
 
