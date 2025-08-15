@@ -1,6 +1,6 @@
-from flask import Flask, render_template, request, redirect, url_for
+from flask import Flask, render_template
 from sqlmodel import Session, select
-from .models import Recipe, RecipeList, engine, create_tables
+from .models import Recipe, engine, create_tables
 
 
 app = Flask(__name__)
