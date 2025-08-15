@@ -3,7 +3,7 @@ from sqlmodel import Session, select
 from .models import Recipe, engine, create_tables
 
 
-app = Flask(__name__)
+app = Flask(__name__, template_folder="../templates")
 
 # Create tables on startup
 create_tables()

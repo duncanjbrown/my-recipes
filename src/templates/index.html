@@ -94,11 +94,11 @@
                 <div class="recipe-url">{{ recipe.url }}</div>
                 {% endif %}
 
-                {% if recipe.ingredients %}
+                {% if recipe.ingredients_list %}
                 <div class="recipe-ingredients">
                     <strong>INGREDIENTS:</strong>
                     <ul>
-                        {% for ingredient in recipe.ingredients %}
+                        {% for ingredient in recipe.ingredients_list %}
                         <li>{{ ingredient }}</li>
                         {% endfor %}
                     </ul>
