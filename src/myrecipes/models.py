@@ -42,6 +42,7 @@ class Recipe(SQLModel, table=True):
 class RecipeList(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     name: str
+    is_current: bool = Field(default=False)
 
     # Relationship to recipes
     recipes: List[Recipe] = Relationship(

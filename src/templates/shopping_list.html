@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Shopping List - {{ recipe_list.name }}</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body {
+            font-family: serif;
+            margin: 0;
+            padding: 20px;
+            background: white;
+            color: black;
+        }
+
+        h1 {
+            margin-top: 0;
+            font-weight: bold;
+            text-decoration: underline;
+        }
+
+        .back-link {
+            margin-bottom: 20px;
+        }
+
+        .back-link a {
+            color: blue;
+            text-decoration: underline;
+        }
+
+        .recipe-list-info {
+            border: 2px solid black;
+            padding: 15px;
+            margin-bottom: 20px;
+            background: white;
+        }
+
+        .shopping-list {
+            border: 2px solid black;
+            padding: 15px;
+            background: white;
+            white-space: pre-wrap;
+            font-family: serif;
+            line-height: 1.6;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="back-link">
+        <a href="/">← BACK TO RECIPES</a>
+    </div>
+    
+    <h1>SHOPPING LIST</h1>
+
+    <div class="recipe-list-info">
+        <strong>{{ recipe_list.name }}</strong><br>
+        <em>{{ recipe_list.recipes|length }} recipe(s): 
+        {% for recipe in recipe_list.recipes %}{{ recipe.title }}{% if not loop.last %}, {% endif %}{% endfor %}</em>
+    </div>
+
+    <div class="shopping-list">{{ shopping_list }}</div>
+</body>
+
+</html>

@@ -1,0 +1,11 @@
+I have the following recipes: {recipe_names}
+
+Here are all the ingredients from these recipes:
+{ingredients}
+
+Please generate a consolidated shopping list that:
+1. Combines duplicate or similar ingredients (e.g., "2 cups flour" and "1 cup flour" becomes "3 cups flour")
+2. Groups ingredients by supermarket section (Produce, Dairy, Meat & Seafood, Pantry/Dry Goods, Frozen, etc.)
+3. Present the final list in a clear, organized format
+
+Format the response as a shopping list with clear section headings.

@@ -108,6 +108,38 @@
             background: black;
             color: white;
         }
+
+        .add-to-list-btn {
+            background: white;
+            border: 2px solid black;
+            padding: 8px 16px;
+            font-family: serif;
+            font-size: 14px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+
+        .add-to-list-btn:hover {
+            background: black;
+            color: white;
+        }
+
+        .generate-shopping-list-btn:hover {
+            background: black !important;
+            color: white !important;
+        }
+
+        .list-item {
+            border: 2px solid black;
+            margin-bottom: 10px;
+            padding: 15px;
+            background: white;
+        }
+
+        .list-title {
+            font-size: 16px;
+            font-weight: bold;
+        }
     </style>
 </head>
 
@@ -148,6 +180,10 @@
                     {{ recipe.instructions }}
                 </div>
                 {% endif %}
+
+                <form method="POST" action="/add-to-list/{{ recipe.id }}" style="margin: 0;">
+                    <button type="submit" class="add-to-list-btn">ADD TO LIST</button>
+                </form>
             </div>
             {% endfor %}
             {% else %}
@@ -159,9 +195,25 @@
 
         <div class="right-pane">
             <h1>RECIPE LISTS</h1>
-            <div style="text-align: center; font-style: italic; margin-top: 50px;">
-                COMING SOON
+            
+            {% if current_list and current_list.recipes %}
+            <div class="list-item">
+                <div class="list-title">{{ current_list.name }}</div>
+                {% for recipe in current_list.recipes %}
+                <div style="margin-top: 10px; padding: 5px; border-left: 3px solid black; padding-left: 10px;">
+                    {{ recipe.title }}
+                </div>
+                {% endfor %}
+                
+                <a href="/generate-shopping-list/{{ current_list.id }}" class="generate-shopping-list-btn" style="display: inline-block; margin-top: 15px; background: white; border: 2px solid black; padding: 8px 16px; font-family: serif; font-size: 14px; text-decoration: none; color: black;">
+                    GENERATE SHOPPING LIST
+                </a>
             </div>
+            {% else %}
+            <div style="text-align: center; font-style: italic; margin-top: 50px;">
+                Start a list by adding a recipe from the left column
+            </div>
+            {% endif %}
         </div>
     </div>
 </body>
