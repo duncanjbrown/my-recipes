@@ -27,14 +27,16 @@
             background: white;
         }
 
-        .add-staple-form input[type="text"] {
-            width: 70%;
+        .add-staple-form textarea {
+            width: 100%;
             padding: 8px;
             border: 2px solid black;
             font-family: serif;
             font-size: 14px;
             box-sizing: border-box;
-            margin-right: 10px;
+            resize: vertical;
+            min-height: 60px;
+            display: block;
         }
 
         .add-staple-form input[type="submit"] {
@@ -128,6 +130,109 @@
             display: contents;
         }
     </style>
+    <script>
+        function handleKeyDown(event) {
+            // Check for Cmd+Enter (Mac) or Ctrl+Enter (PC)
+            if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
+                event.preventDefault();
+                event.target.form.submit();
+            }
+        }
+
+        function toggleStaple(stapleId, checkbox) {
+            // Update UI immediately for responsiveness
+            const nameElement = checkbox.closest('.staple-item').querySelector('.staple-name');
+            const wasChecked = checkbox.checked;
+            
+            if (wasChecked) {
+                nameElement.classList.add('checked');
+            } else {
+                nameElement.classList.remove('checked');
+            }
+
+            // Send AJAX request to server
+            fetch(`/staples/toggle/${stapleId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (!data.success) {
+                    // Revert UI changes if server request failed
+                    checkbox.checked = !wasChecked;
+                    if (!wasChecked) {
+                        nameElement.classList.add('checked');
+                    } else {
+                        nameElement.classList.remove('checked');
+                    }
+                    alert('Failed to update staple. Please try again.');
+                } else {
+                    // Ensure UI matches server state
+                    checkbox.checked = data.is_checked;
+                    if (data.is_checked) {
+                        nameElement.classList.add('checked');
+                    } else {
+                        nameElement.classList.remove('checked');
+                    }
+                }
+            })
+            .catch(error => {
+                // Revert UI changes if request failed
+                checkbox.checked = !wasChecked;
+                if (!wasChecked) {
+                    nameElement.classList.add('checked');
+                } else {
+                    nameElement.classList.remove('checked');
+                }
+                console.error('Error toggling staple:', error);
+                alert('Failed to update staple. Please try again.');
+            });
+        }
+
+        function removeStaple(stapleId, button) {
+            // Confirm removal
+            const stapleItem = button.closest('.staple-item');
+            const stapleName = stapleItem.querySelector('.staple-name').textContent.trim();
+            
+            if (!confirm(`Remove "${stapleName}" from staples?`)) {
+                return;
+            }
+
+            // Disable button during request
+            button.disabled = true;
+            const originalText = button.textContent;
+            button.textContent = 'REMOVING...';
+
+            // Send AJAX request to server
+            fetch(`/staples/remove/${stapleId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Remove the staple item from DOM
+                    stapleItem.remove();
+                } else {
+                    // Re-enable button on failure
+                    button.disabled = false;
+                    button.textContent = originalText;
+                    alert('Failed to remove staple. Please try again.');
+                }
+            })
+            .catch(error => {
+                // Re-enable button on error
+                button.disabled = false;
+                button.textContent = originalText;
+                console.error('Error removing staple:', error);
+                alert('Failed to remove staple. Please try again.');
+            });
+        }
+    </script>
 </head>
 
 <body>
@@ -136,9 +241,9 @@
     <h1>STAPLES CONFIGURATION</h1>
 
     <form method="POST" action="/staples/add" class="add-staple-form">
-        <strong>ADD NEW STAPLE:</strong><br><br>
-        <input type="text" name="name" placeholder="Enter staple name (e.g., Salt, Pepper, Oil)" required>
-        <input type="submit" value="ADD STAPLE">
+        <strong>ADD NEW STAPLES:</strong><br><br>
+        <textarea name="names" placeholder="Enter staple names, one per line (e.g., Salt&#10;Pepper&#10;Olive Oil)&#10;&#10;Press Cmd+Enter to submit" required onkeydown="handleKeyDown(event)"></textarea><br><br>
+        <input type="submit" value="ADD STAPLES">
     </form>
 
     {% if staples %}
@@ -148,22 +253,17 @@
         {% for staple in staples %}
         <div class="staple-item">
             <div class="staple-info">
-                <form method="POST" action="/staples/toggle/{{ staple.id }}" class="toggle-btn">
-                    <input type="checkbox" class="staple-checkbox" 
-                           {% if staple.is_checked %}checked{% endif %}
-                           onchange="this.form.submit()">
-                </form>
+                <input type="checkbox" class="staple-checkbox" 
+                       {% if staple.is_checked %}checked{% endif %}
+                       onchange="toggleStaple({{ staple.id }}, this)">
                 <div class="staple-name {% if staple.is_checked %}checked{% endif %}">
                     {{ staple.name }}
                 </div>
             </div>
             
-            <form method="POST" action="/staples/remove/{{ staple.id }}" style="margin: 0;">
-                <button type="submit" class="remove-btn" 
-                        onclick="return confirm('Remove {{ staple.name }} from staples?')">
-                    REMOVE
-                </button>
-            </form>
+            <button type="button" class="remove-btn" onclick="removeStaple({{ staple.id }}, this)">
+                REMOVE
+            </button>
         </div>
         {% endfor %}
     {% else %}

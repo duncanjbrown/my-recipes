@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for
+from flask import Flask, render_template, request, redirect, url_for, jsonify
 import requests
 from recipe_scrapers import scrape_me
 from sqlmodel import Session, select
@@ -218,17 +218,21 @@ def staples_config():
 
 @app.route('/staples/add', methods=['POST'])
 def add_staple():
-    name = request.form.get('name')
-    if not name or not name.strip():
+    names_input = request.form.get('names')
+    if not names_input or not names_input.strip():
         return redirect(url_for('staples_config'))
     
+    # Split by lines and clean up each name
+    names = [name.strip() for name in names_input.strip().split('\n') if name.strip()]
+    
     with Session(engine) as session:
-        # Check if staple already exists
-        existing = session.exec(select(Staple).where(Staple.name == name.strip())).first()
-        if not existing:
-            staple = Staple(name=name.strip())
-            session.add(staple)
-            session.commit()
+        for name in names:
+            # Check if staple already exists
+            existing = session.exec(select(Staple).where(Staple.name == name)).first()
+            if not existing:
+                staple = Staple(name=name)
+                session.add(staple)
+        session.commit()
     
     return redirect(url_for('staples_config'))
 
@@ -240,6 +244,13 @@ def remove_staple(staple_id):
         if staple:
             session.delete(staple)
             session.commit()
+            
+            # Return JSON for AJAX requests
+            if request.headers.get('Content-Type') == 'application/json':
+                return jsonify({
+                    'success': True,
+                    'message': 'Staple removed successfully'
+                })
     
     return redirect(url_for('staples_config'))
 
@@ -252,6 +263,13 @@ def toggle_staple(staple_id):
             staple.is_checked = not staple.is_checked
             session.add(staple)
             session.commit()
+            
+            # Return JSON for AJAX requests
+            if request.headers.get('Content-Type') == 'application/json':
+                return jsonify({
+                    'success': True,
+                    'is_checked': staple.is_checked
+                })
     
     return redirect(url_for('staples_config'))
 

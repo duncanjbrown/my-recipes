@@ -386,19 +386,9 @@ class TestStaplesFeature:
         response_text = response.data.decode('utf-8')
         assert "STAPLES CONFIGURATION" in response_text
 
-        # 2. Add staples to the list
+        # 2. Add staples to the list (test multiline functionality)
         response = client.post('/staples/add', data={
-            'name': 'Butter'
-        }, follow_redirects=True)
-        assert response.status_code == 200
-
-        response = client.post('/staples/add', data={
-            'name': 'Cheese'
-        }, follow_redirects=True)
-        assert response.status_code == 200
-
-        response = client.post('/staples/add', data={
-            'name': 'Eggs'
+            'names': 'Butter\nCheese\nEggs'
         }, follow_redirects=True)
         assert response.status_code == 200
 
@@ -528,7 +518,7 @@ PANTRY/DRY GOODS
         from myrecipes.models import Staple
         
         # Add a staple
-        response = client.post('/staples/add', data={'name': 'Milk'}, follow_redirects=True)
+        response = client.post('/staples/add', data={'names': 'Milk'}, follow_redirects=True)
         assert response.status_code == 200
 
         # Get staple ID
@@ -562,3 +552,53 @@ PANTRY/DRY GOODS
         response_text = response.data.decode('utf-8')
         assert "STAPLES CONFIGURATION" in response_text
         assert "Add staples that you want to include" in response_text
+
+    def test_multiline_staples_add(self, client):
+        # Test adding multiple staples with multiline input
+        from myrecipes.models import Staple
+        
+        # Add multiple staples in one request
+        multiline_input = "Salt\nPepper\nOlive Oil\nGarlic\nOnion"
+        response = client.post('/staples/add', data={'names': multiline_input}, follow_redirects=True)
+        assert response.status_code == 200
+        
+        # Verify all staples were added to database
+        with Session(engine) as session:
+            salt = session.exec(select(Staple).where(Staple.name == "Salt")).first()
+            pepper = session.exec(select(Staple).where(Staple.name == "Pepper")).first()
+            olive_oil = session.exec(select(Staple).where(Staple.name == "Olive Oil")).first()
+            garlic = session.exec(select(Staple).where(Staple.name == "Garlic")).first()
+            onion = session.exec(select(Staple).where(Staple.name == "Onion")).first()
+            
+            assert salt is not None
+            assert pepper is not None
+            assert olive_oil is not None
+            assert garlic is not None
+            assert onion is not None
+            
+        # Verify they appear on the page
+        response = client.get('/staples')
+        response_text = response.data.decode('utf-8')
+        assert "Salt" in response_text
+        assert "Pepper" in response_text  
+        assert "Olive Oil" in response_text
+        assert "Garlic" in response_text
+        assert "Onion" in response_text
+
+    def test_multiline_staples_with_empty_lines(self, client):
+        # Test multiline input with empty lines and extra whitespace
+        from myrecipes.models import Staple
+        
+        multiline_input = "  Tomatoes  \n\n  \nBasil\n\n\nMozzarella  \n  "
+        response = client.post('/staples/add', data={'names': multiline_input}, follow_redirects=True)
+        assert response.status_code == 200
+        
+        # Verify only non-empty names were added (trimmed)
+        with Session(engine) as session:
+            tomatoes = session.exec(select(Staple).where(Staple.name == "Tomatoes")).first()
+            basil = session.exec(select(Staple).where(Staple.name == "Basil")).first()  
+            mozzarella = session.exec(select(Staple).where(Staple.name == "Mozzarella")).first()
+            
+            assert tomatoes is not None
+            assert basil is not None
+            assert mozzarella is not None
