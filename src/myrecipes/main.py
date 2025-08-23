@@ -280,6 +280,20 @@ def toggle_staple(staple_id):
     return redirect(url_for('staples_config'))
 
 
+@app.route('/compendium/<int:list_id>')
+def compendium(list_id):
+    with Session(engine) as session:
+        # Get the recipe list with recipes
+        statement = select(RecipeList).options(
+            selectinload(RecipeList.recipes)).where(RecipeList.id == list_id)
+        recipe_list = session.exec(statement).first()
+        
+        if not recipe_list:
+            return redirect(url_for('index'))
+        
+        return render_template('compendium.html', recipe_list=recipe_list)
+
+
 @app.route('/api/search-recipes')
 def search_recipes():
     query = request.args.get('q', '').strip()

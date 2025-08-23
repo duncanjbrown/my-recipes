@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Recipe Compendium - {{ recipe_list.created_at.strftime('%B %d, %Y') }}</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body {
+            font-family: serif;
+            margin: 0;
+            padding: 20px;
+            background: white;
+            color: black;
+            line-height: 1.4;
+        }
+
+        h1 {
+            font-size: 24px;
+            font-weight: bold;
+            text-decoration: underline;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .recipe {
+            margin-bottom: 40px;
+            page-break-after: always;
+        }
+
+        .recipe:last-child {
+            page-break-after: none;
+        }
+
+        .recipe-title {
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            text-decoration: underline;
+        }
+
+        .recipe-url {
+            font-size: 12px;
+            margin-bottom: 15px;
+            color: #666;
+            word-break: break-all;
+        }
+
+        .section-title {
+            font-size: 16px;
+            font-weight: bold;
+            margin-top: 20px;
+            margin-bottom: 10px;
+            text-decoration: underline;
+        }
+
+        .ingredients-list {
+            margin: 0;
+            padding-left: 20px;
+            margin-bottom: 20px;
+        }
+
+        .ingredients-list li {
+            margin-bottom: 5px;
+        }
+
+        .instructions {
+            line-height: 1.5;
+            margin-bottom: 20px;
+        }
+
+        .no-recipes {
+            text-align: center;
+            font-style: italic;
+            margin-top: 50px;
+            font-size: 18px;
+        }
+
+        @media print {
+            body {
+                padding: 10px;
+            }
+            
+            .recipe {
+                page-break-after: always;
+            }
+            
+            .recipe:last-child {
+                page-break-after: none;
+            }
+        }
+
+        @media screen {
+            .print-instructions {
+                background: #f0f0f0;
+                border: 2px solid black;
+                padding: 15px;
+                margin-bottom: 30px;
+                text-align: center;
+                font-style: italic;
+            }
+        }
+
+        @media print {
+            .print-instructions {
+                display: none;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="print-instructions">
+        Use your browser's Print function (Ctrl+P / Cmd+P) to print this compendium. Each recipe will be on its own page.
+    </div>
+
+    {% if recipe_list.recipes %}
+        {% for recipe in recipe_list.recipes %}
+        <div class="recipe">
+            <div class="recipe-title">{{ recipe.title }}</div>
+            
+            {% if recipe.url %}
+            <div class="recipe-url">Source: {{ recipe.url }}</div>
+            {% endif %}
+
+            {% if recipe.ingredients_list %}
+            <div class="section-title">INGREDIENTS</div>
+            <ul class="ingredients-list">
+                {% for ingredient in recipe.ingredients_list %}
+                <li>{{ ingredient }}</li>
+                {% endfor %}
+            </ul>
+            {% endif %}
+
+            {% if recipe.instructions %}
+            <div class="section-title">INSTRUCTIONS</div>
+            <div class="instructions">{{ recipe.instructions }}</div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    {% else %}
+    <div class="no-recipes">
+        No recipes in this list
+    </div>
+    {% endif %}
+</body>
+
+</html>

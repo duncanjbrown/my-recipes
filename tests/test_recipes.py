@@ -757,3 +757,155 @@ class TestMultipleRecipeAdding:
                 titles = {recipe.title for recipe in recipes}
                 assert 'Good Recipe' in titles
                 assert 'Another Good Recipe' in titles
+
+
+class TestPrintableCompendium:
+    @pytest.fixture
+    def client(self):
+        create_tables()
+        with app.test_client() as client:
+            yield client
+
+    def test_compendium_button_appears_on_recipe_list(self, client):
+        # Create recipes and add to list
+        recipe1 = Recipe(
+            title="Chocolate Chip Cookies",
+            ingredients='["2 cups flour", "1 cup sugar", "1/2 cup butter", "chocolate chips"]',
+            instructions="Mix ingredients and bake at 350°F for 12 minutes"
+        )
+        recipe2 = Recipe(
+            title="Banana Bread",
+            ingredients='["3 bananas", "2 cups flour", "1 cup sugar", "1/2 cup oil"]',
+            instructions="Mash bananas, mix with dry ingredients, bake at 350°F for 60 minutes"
+        )
+
+        with Session(engine) as session:
+            session.add(recipe1)
+            session.add(recipe2)
+            session.commit()
+            session.refresh(recipe1)
+            session.refresh(recipe2)
+
+        # Add recipes to current list
+        client.post(f'/add-to-list/{recipe1.id}')
+        client.post(f'/add-to-list/{recipe2.id}')
+
+        # Verify compendium button appears on main page
+        response = client.get('/')
+        response_text = response.data.decode('utf-8')
+        assert "PRINT COMPENDIUM" in response_text
+
+        # Get current list to test the compendium link
+        with Session(engine) as session:
+            current_list = session.exec(select(RecipeList).where(RecipeList.is_current == True)).first()
+            assert f"/compendium/{current_list.id}" in response_text
+
+    def test_compendium_generates_printable_page(self, client):
+        # Create recipes with full details
+        recipe1 = Recipe(
+            title="Chocolate Chip Cookies",
+            url="https://example.com/cookies",
+            ingredients='["2 cups flour", "1 cup sugar", "1/2 cup butter", "2 cups chocolate chips"]',
+            instructions="Preheat oven to 350°F. Mix dry ingredients in bowl. Add wet ingredients. Drop onto baking sheet. Bake for 12 minutes until golden brown."
+        )
+        recipe2 = Recipe(
+            title="Banana Bread", 
+            url="https://example.com/banana-bread",
+            ingredients='["3 ripe bananas", "2 cups all-purpose flour", "1 cup sugar", "1/2 cup vegetable oil", "2 eggs", "1 tsp baking soda"]',
+            instructions="Preheat oven to 350°F. Mash bananas in large bowl. Mix in oil, sugar, and eggs. Add flour and baking soda. Pour into loaf pan. Bake 60-70 minutes."
+        )
+
+        with Session(engine) as session:
+            session.add(recipe1)
+            session.add(recipe2)  
+            session.commit()
+            session.refresh(recipe1)
+            session.refresh(recipe2)
+
+        # Add recipes to current list
+        client.post(f'/add-to-list/{recipe1.id}')
+        client.post(f'/add-to-list/{recipe2.id}')
+
+        # Get current list ID
+        with Session(engine) as session:
+            current_list = session.exec(select(RecipeList).where(RecipeList.is_current == True)).first()
+            list_id = current_list.id
+
+        # Test compendium page
+        response = client.get(f'/compendium/{list_id}')
+        assert response.status_code == 200
+        response_text = response.data.decode('utf-8')
+
+        # Verify page has print-specific styling
+        assert "@media print" in response_text
+        assert "page-break-after: always" in response_text
+
+        # Verify both recipes appear with full details
+        assert "Chocolate Chip Cookies" in response_text
+        assert "Banana Bread" in response_text
+        
+        # Check ingredients appear
+        assert "2 cups flour" in response_text
+        assert "3 ripe bananas" in response_text
+        assert "chocolate chips" in response_text
+        assert "baking soda" in response_text
+
+        # Check instructions appear
+        assert "Preheat oven to 350°F" in response_text
+        assert "Mash bananas in large bowl" in response_text
+        assert "Bake for 12 minutes" in response_text
+        assert "Bake 60-70 minutes" in response_text
+
+        # Check URLs appear
+        assert "https://example.com/cookies" in response_text
+        assert "https://example.com/banana-bread" in response_text
+
+    def test_compendium_with_empty_list(self, client):
+        # Create empty list
+        empty_list = RecipeList(name="Empty List", is_current=True)
+        
+        with Session(engine) as session:
+            session.add(empty_list)
+            session.commit()
+            session.refresh(empty_list)
+
+        response = client.get(f'/compendium/{empty_list.id}')
+        assert response.status_code == 200
+        response_text = response.data.decode('utf-8')
+        assert "No recipes in this list" in response_text
+
+    def test_compendium_with_nonexistent_list(self, client):
+        response = client.get('/compendium/999')
+        assert response.status_code == 302  # Redirect to index
+
+    def test_compendium_button_appears_on_previous_list_view(self, client):
+        # Create recipe and add to list
+        recipe = Recipe(
+            title="Test Recipe",
+            ingredients='["ingredient1", "ingredient2"]',
+            instructions="Test instructions"
+        )
+
+        with Session(engine) as session:
+            session.add(recipe)
+            session.commit()
+            session.refresh(recipe)
+
+        # Add to current list
+        client.post(f'/add-to-list/{recipe.id}')
+
+        # Get the list ID
+        with Session(engine) as session:
+            current_list = session.exec(select(RecipeList).where(RecipeList.is_current == True)).first()
+            list_id = current_list.id
+
+        # Start new list (making the previous one a "previous list")
+        client.post('/start-new-list')
+
+        # View the previous list
+        response = client.get(f'/view-list/{list_id}')
+        response_text = response.data.decode('utf-8')
+        
+        # Verify compendium button appears
+        assert "PRINT COMPENDIUM" in response_text
+        assert f"/compendium/{list_id}" in response_text
