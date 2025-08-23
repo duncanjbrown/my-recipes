@@ -244,3 +244,128 @@ PANTRY/DRY GOODS
     def test_shopping_list_generation_nonexistent_list(self, client):
         response = client.get('/generate-shopping-list/999')
         assert response.status_code == 302  # Redirect to index
+
+
+class TestStartNewList:
+    @pytest.fixture
+    def client(self):
+        create_tables()
+        with app.test_client() as client:
+            yield client
+
+    def test_start_new_list_closes_current_and_shows_previous_lists(self, client):
+        # Create a recipe and add it to current list
+        test_recipe = Recipe(
+            title="Original Recipe",
+            ingredients='["flour", "eggs"]'
+        )
+
+        with Session(engine) as session:
+            session.add(test_recipe)
+            session.commit()
+            session.refresh(test_recipe)
+
+        # Add recipe to current list (creating the current list)
+        response = client.post(f'/add-to-list/{test_recipe.id}', follow_redirects=True)
+        assert response.status_code == 200
+
+        # Verify current list exists with recipe
+        with Session(engine) as session:
+            current_lists = list(session.exec(select(RecipeList).where(RecipeList.is_current == True)))
+            assert len(current_lists) == 1
+            assert len(current_lists[0].recipes) == 1
+            first_list_id = current_lists[0].id
+
+        # Start a new list
+        response = client.post('/start-new-list', follow_redirects=True)
+        assert response.status_code == 200
+
+        # Verify the original list is no longer current
+        with Session(engine) as session:
+            original_list = session.get(RecipeList, first_list_id)
+            assert original_list.is_current == False
+            
+            # Verify no current list exists initially (will be created when first recipe is added)
+            current_lists = list(session.exec(select(RecipeList).where(RecipeList.is_current == True)))
+            assert len(current_lists) == 0
+
+        # Check that the UI shows previous lists with date/time
+        response = client.get('/')
+        response_text = response.data.decode('utf-8')
+        
+        # Should show previous lists section
+        assert "PREVIOUS LISTS" in response_text
+        
+        # Should show a link to view the previous list (by timestamp, not recipe name)
+        assert f"/view-list/{first_list_id}" in response_text
+
+        # Verify we can add a recipe to the new current list
+        new_recipe = Recipe(
+            title="New Recipe",
+            ingredients='["butter", "sugar"]'
+        )
+
+        with Session(engine) as session:
+            session.add(new_recipe)
+            session.commit()
+            session.refresh(new_recipe)
+
+        # Add recipe to new current list
+        response = client.post(f'/add-to-list/{new_recipe.id}', follow_redirects=True)
+        assert response.status_code == 200
+
+        # Verify new current list exists
+        with Session(engine) as session:
+            current_lists = list(session.exec(select(RecipeList).where(RecipeList.is_current == True)))
+            assert len(current_lists) == 1
+            assert current_lists[0].id != first_list_id
+            assert len(current_lists[0].recipes) == 1
+            assert current_lists[0].recipes[0].title == "New Recipe"
+
+    def test_start_new_list_button_appears_when_current_list_exists(self, client):
+        # Create and add recipe to current list
+        test_recipe = Recipe(title="Test Recipe", ingredients='["ingredient"]')
+        
+        with Session(engine) as session:
+            session.add(test_recipe)
+            session.commit()
+            session.refresh(test_recipe)
+
+        client.post(f'/add-to-list/{test_recipe.id}')
+
+        # Check that START NEW LIST button appears
+        response = client.get('/')
+        response_text = response.data.decode('utf-8')
+        assert "START NEW LIST" in response_text
+
+    def test_previous_lists_are_accessible_via_links(self, client):
+        # Create two recipes
+        recipe1 = Recipe(title="Recipe 1", ingredients='["ingredient1"]')
+        recipe2 = Recipe(title="Recipe 2", ingredients='["ingredient2"]')
+        
+        with Session(engine) as session:
+            session.add(recipe1)
+            session.add(recipe2)
+            session.commit()
+            session.refresh(recipe1)
+            session.refresh(recipe2)
+
+        # Add first recipe to current list
+        client.post(f'/add-to-list/{recipe1.id}')
+        
+        # Get the first list ID
+        with Session(engine) as session:
+            first_list = session.exec(select(RecipeList).where(RecipeList.is_current == True)).first()
+            first_list_id = first_list.id
+
+        # Start new list
+        client.post('/start-new-list')
+
+        # Add second recipe to new current list  
+        client.post(f'/add-to-list/{recipe2.id}')
+
+        # Verify we can access the previous list via its ID
+        response = client.get(f'/view-list/{first_list_id}')
+        assert response.status_code == 200
+        response_text = response.data.decode('utf-8')
+        assert "Recipe 1" in response_text

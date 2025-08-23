@@ -29,7 +29,12 @@ def index():
             selectinload(RecipeList.recipes)).where(RecipeList.is_current == True)
         current_list = session.exec(current_list_statement).first()
 
-    return render_template('index.html', recipes=recipes, current_list=current_list)
+        # Get previous lists ordered by creation time
+        previous_lists_statement = select(RecipeList).options(
+            selectinload(RecipeList.recipes)).where(RecipeList.is_current == False).order_by(RecipeList.created_at.desc())
+        previous_lists = list(session.exec(previous_lists_statement))
+
+    return render_template('index.html', recipes=recipes, current_list=current_list, previous_lists=previous_lists)
 
 
 @app.route('/add-recipe', methods=['POST'])
@@ -150,6 +155,46 @@ def generate_shopping_list_page(list_id):
         return render_template('shopping_list.html', 
                              recipe_list=recipe_list, 
                              shopping_list=shopping_list)
+
+
+@app.route('/start-new-list', methods=['POST'])
+def start_new_list():
+    with Session(engine) as session:
+        # Set all current lists to not current
+        current_lists_statement = select(RecipeList).where(RecipeList.is_current == True)
+        current_lists = list(session.exec(current_lists_statement))
+        
+        for current_list in current_lists:
+            current_list.is_current = False
+            session.add(current_list)
+        
+        session.commit()
+    
+    return redirect(url_for('index'))
+
+
+@app.route('/view-list/<int:list_id>')
+def view_list(list_id):
+    with Session(engine) as session:
+        # Get the recipe list with recipes
+        statement = select(RecipeList).options(
+            selectinload(RecipeList.recipes)).where(RecipeList.id == list_id)
+        recipe_list = session.exec(statement).first()
+        
+        if not recipe_list:
+            return redirect(url_for('index'))
+        
+        # Get all recipes and previous lists for the template
+        all_recipes = list(session.exec(select(Recipe)))
+        previous_lists_statement = select(RecipeList).options(
+            selectinload(RecipeList.recipes)).where(RecipeList.is_current == False).order_by(RecipeList.created_at.desc())
+        previous_lists = list(session.exec(previous_lists_statement))
+        
+        return render_template('index.html', 
+                             recipes=all_recipes, 
+                             current_list=None, 
+                             previous_lists=previous_lists,
+                             viewing_list=recipe_list)
 
 
 if __name__ == "__main__":

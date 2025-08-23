@@ -1,6 +1,7 @@
 import json
 from sqlmodel import SQLModel, Field, create_engine, Relationship
 from typing import Optional, List
+from datetime import datetime
 
 from .environment import config
 
@@ -43,6 +44,7 @@ class RecipeList(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     name: str
     is_current: bool = Field(default=False)
+    created_at: datetime = Field(default_factory=datetime.now)
 
     # Relationship to recipes
     recipes: List[Recipe] = Relationship(
