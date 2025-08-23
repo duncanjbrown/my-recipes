@@ -6,7 +6,7 @@ from sqlalchemy.orm import selectinload
 import os
 from anthropic import Anthropic
 
-from .models import Recipe, RecipeList, engine, create_tables
+from .models import Recipe, RecipeList, Staple, engine, create_tables
 
 
 app = Flask(__name__, template_folder="../templates")
@@ -95,7 +95,7 @@ def add_to_list(recipe_id):
     return redirect(url_for('index'))
 
 
-def generate_shopping_list(recipe_list):
+def generate_shopping_list(recipe_list, include_staples=False):
     """Generate a shopping list from a recipe list using Claude API"""
     if not recipe_list.recipes:
         return "No recipes in list"
@@ -107,6 +107,15 @@ def generate_shopping_list(recipe_list):
     for recipe in recipe_list.recipes:
         recipe_names.append(recipe.title)
         all_ingredients.extend(recipe.ingredients_list)
+    
+    # Add unchecked staples if requested
+    if include_staples:
+        with Session(engine) as session:
+            unchecked_staples = list(session.exec(
+                select(Staple).where(Staple.is_checked == False)
+            ))
+            for staple in unchecked_staples:
+                all_ingredients.append(staple.name)
     
     # Read prompt template
     prompt_file_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'shopping_list_prompt.txt')
@@ -136,7 +145,7 @@ def generate_shopping_list(recipe_list):
         return f"Error generating shopping list: {str(e)}"
 
 
-@app.route('/generate-shopping-list/<int:list_id>')
+@app.route('/generate-shopping-list/<int:list_id>', methods=['POST'])
 def generate_shopping_list_page(list_id):
     with Session(engine) as session:
         # Get the recipe list with recipes
@@ -149,12 +158,14 @@ def generate_shopping_list_page(list_id):
             selectinload(RecipeList.recipes)).where(RecipeList.id == list_id)
         recipe_list = session.exec(statement).first()
         
-        # Generate shopping list
-        shopping_list = generate_shopping_list(recipe_list)
+        # Handle form submission - always generate shopping list
+        include_staples = 'include_staples' in request.form
+        shopping_list = generate_shopping_list(recipe_list, include_staples)
         
         return render_template('shopping_list.html', 
                              recipe_list=recipe_list, 
-                             shopping_list=shopping_list)
+                             shopping_list=shopping_list,
+                             include_staples=include_staples)
 
 
 @app.route('/start-new-list', methods=['POST'])
@@ -195,6 +206,54 @@ def view_list(list_id):
                              current_list=None, 
                              previous_lists=previous_lists,
                              viewing_list=recipe_list)
+
+
+@app.route('/staples')
+def staples_config():
+    with Session(engine) as session:
+        staples = list(session.exec(select(Staple).order_by(Staple.name)))
+    
+    return render_template('staples.html', staples=staples)
+
+
+@app.route('/staples/add', methods=['POST'])
+def add_staple():
+    name = request.form.get('name')
+    if not name or not name.strip():
+        return redirect(url_for('staples_config'))
+    
+    with Session(engine) as session:
+        # Check if staple already exists
+        existing = session.exec(select(Staple).where(Staple.name == name.strip())).first()
+        if not existing:
+            staple = Staple(name=name.strip())
+            session.add(staple)
+            session.commit()
+    
+    return redirect(url_for('staples_config'))
+
+
+@app.route('/staples/remove/<int:staple_id>', methods=['POST'])
+def remove_staple(staple_id):
+    with Session(engine) as session:
+        staple = session.get(Staple, staple_id)
+        if staple:
+            session.delete(staple)
+            session.commit()
+    
+    return redirect(url_for('staples_config'))
+
+
+@app.route('/staples/toggle/<int:staple_id>', methods=['POST'])
+def toggle_staple(staple_id):
+    with Session(engine) as session:
+        staple = session.get(Staple, staple_id)
+        if staple:
+            staple.is_checked = not staple.is_checked
+            session.add(staple)
+            session.commit()
+    
+    return redirect(url_for('staples_config'))
 
 
 if __name__ == "__main__":

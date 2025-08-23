@@ -2,7 +2,7 @@ import pytest
 from unittest.mock import patch, MagicMock
 from sqlmodel import Session, select
 from myrecipes.main import app
-from myrecipes.models import Recipe, RecipeList, engine, create_tables
+from myrecipes.models import Recipe, RecipeList, Staple, engine, create_tables
 
 
 class TestViewRecipeInList:
@@ -205,8 +205,8 @@ PANTRY/DRY GOODS
 
             mock_client.messages.create.return_value = mock_message
 
-            # Test the shopping list generation endpoint
-            response = client.get(f'/generate-shopping-list/{list_id}')
+            # Test the shopping list generation endpoint (POST to generate)
+            response = client.post(f'/generate-shopping-list/{list_id}')
             
             assert response.status_code == 200
             response_text = response.data.decode('utf-8')
@@ -235,14 +235,14 @@ PANTRY/DRY GOODS
             session.commit()
             session.refresh(empty_list)
 
-        response = client.get(f'/generate-shopping-list/{empty_list.id}')
+        response = client.post(f'/generate-shopping-list/{empty_list.id}')
         
         assert response.status_code == 200
         response_text = response.data.decode('utf-8')
         assert "No recipes in list" in response_text
 
     def test_shopping_list_generation_nonexistent_list(self, client):
-        response = client.get('/generate-shopping-list/999')
+        response = client.post('/generate-shopping-list/999')
         assert response.status_code == 302  # Redirect to index
 
 
@@ -369,3 +369,196 @@ class TestStartNewList:
         assert response.status_code == 200
         response_text = response.data.decode('utf-8')
         assert "Recipe 1" in response_text
+
+
+class TestStaplesFeature:
+    @pytest.fixture
+    def client(self):
+        create_tables()
+        with app.test_client() as client:
+            yield client
+
+    def test_staples_end_to_end_workflow(self, client):
+        # Test the complete staples workflow
+        # 1. Access staples configuration page
+        response = client.get('/staples')
+        assert response.status_code == 200
+        response_text = response.data.decode('utf-8')
+        assert "STAPLES CONFIGURATION" in response_text
+
+        # 2. Add staples to the list
+        response = client.post('/staples/add', data={
+            'name': 'Butter'
+        }, follow_redirects=True)
+        assert response.status_code == 200
+
+        response = client.post('/staples/add', data={
+            'name': 'Cheese'
+        }, follow_redirects=True)
+        assert response.status_code == 200
+
+        response = client.post('/staples/add', data={
+            'name': 'Eggs'
+        }, follow_redirects=True)
+        assert response.status_code == 200
+
+        # 3. Verify staples appear in configuration page
+        response = client.get('/staples')
+        response_text = response.data.decode('utf-8')
+        assert "Butter" in response_text
+        assert "Cheese" in response_text
+        assert "Eggs" in response_text
+
+        # 4. Mark one staple as checked (eggs)
+        # First get the staple ID from database
+        from myrecipes.models import Staple
+        with Session(engine) as session:
+            eggs_staple = session.exec(select(Staple).where(Staple.name == "Eggs")).first()
+            eggs_id = eggs_staple.id
+
+        response = client.post(f'/staples/toggle/{eggs_id}', follow_redirects=True)
+        assert response.status_code == 200
+
+        # 5. Create a recipe and add it to a list
+        test_recipe = Recipe(
+            title="Pasta Dish",
+            ingredients='["2 cups pasta", "1 cup tomato sauce"]'
+        )
+        with Session(engine) as session:
+            session.add(test_recipe)
+            session.commit()
+            session.refresh(test_recipe)
+
+        # Add recipe to current list
+        response = client.post(f'/add-to-list/{test_recipe.id}', follow_redirects=True)
+        assert response.status_code == 200
+
+        # 6. Get current list for shopping list generation
+        with Session(engine) as session:
+            current_list = session.exec(select(RecipeList).where(RecipeList.is_current == True)).first()
+            list_id = current_list.id
+
+        # 7. Generate shopping list with staples option checked
+        # Mock the Anthropic API call
+        with patch('myrecipes.main.anthropic_client') as mock_client:
+            mock_message = MagicMock()
+            mock_message.content = [MagicMock()]
+            mock_message.content[0].text = """PRODUCE
+- (no produce items)
+
+DAIRY
+- Butter
+- Cheese
+
+PANTRY/DRY GOODS
+- 2 cups pasta  
+- 1 cup tomato sauce"""
+
+            mock_client.messages.create.return_value = mock_message
+
+            response = client.post(f'/generate-shopping-list/{list_id}', data={
+                'include_staples': 'on'
+            })
+            
+            assert response.status_code == 200
+            response_text = response.data.decode('utf-8')
+            
+            # Should include butter and cheese (not eggs because it's checked off)
+            assert "Butter" in response_text
+            assert "Cheese" in response_text
+            assert "Eggs" not in response_text
+            
+            # Should still include recipe ingredients
+            assert "2 cups pasta" in response_text
+            assert "1 cup tomato sauce" in response_text
+
+        # 8. Generate shopping list WITHOUT staples option
+        with patch('myrecipes.main.anthropic_client') as mock_client:
+            mock_message = MagicMock()
+            mock_message.content = [MagicMock()]
+            mock_message.content[0].text = """PANTRY/DRY GOODS
+- 2 cups pasta
+- 1 cup tomato sauce"""
+
+            mock_client.messages.create.return_value = mock_message
+
+            response = client.post(f'/generate-shopping-list/{list_id}')
+            
+            assert response.status_code == 200
+            response_text = response.data.decode('utf-8')
+            
+            # Should NOT include any staples
+            assert "Butter" not in response_text
+            assert "Cheese" not in response_text
+            assert "Eggs" not in response_text
+            
+            # Should still include recipe ingredients
+            assert "2 cups pasta" in response_text
+            assert "1 cup tomato sauce" in response_text
+
+        # 9. Test removing a staple
+        with Session(engine) as session:
+            butter_staple = session.exec(select(Staple).where(Staple.name == "Butter")).first()
+            butter_id = butter_staple.id
+
+        response = client.post(f'/staples/remove/{butter_id}', follow_redirects=True)
+        assert response.status_code == 200
+
+        # Verify butter is removed from staples page
+        response = client.get('/staples')
+        response_text = response.data.decode('utf-8')
+        
+        # Check that Butter is not in a staple-name div (more specific check)
+        import re
+        butter_pattern = r'<div class="staple-name[^"]*">\s*Butter\s*</div>'
+        assert not re.search(butter_pattern, response_text)
+        
+        # Cheese should still be there
+        cheese_pattern = r'<div class="staple-name[^"]*">\s*Cheese\s*</div>'
+        assert re.search(cheese_pattern, response_text)
+
+        # 10. Test that staples configuration link appears on main page
+        response = client.get('/')
+        response_text = response.data.decode('utf-8')
+        assert 'href="/staples"' in response_text  # Link to staples config
+        assert 'name="include_staples"' in response_text  # Checkbox for including staples
+
+    def test_staples_checkbox_toggle_functionality(self, client):
+        # Test that checking/unchecking staples works correctly
+        from myrecipes.models import Staple
+        
+        # Add a staple
+        response = client.post('/staples/add', data={'name': 'Milk'}, follow_redirects=True)
+        assert response.status_code == 200
+
+        # Get staple ID
+        with Session(engine) as session:
+            staple = session.exec(select(Staple).where(Staple.name == "Milk")).first()
+            staple_id = staple.id
+            assert staple.is_checked == False  # Should start unchecked
+
+        # Toggle to checked
+        response = client.post(f'/staples/toggle/{staple_id}', follow_redirects=True)
+        assert response.status_code == 200
+
+        # Verify it's checked
+        with Session(engine) as session:
+            staple = session.get(Staple, staple_id)
+            assert staple.is_checked == True
+
+        # Toggle back to unchecked
+        response = client.post(f'/staples/toggle/{staple_id}', follow_redirects=True)
+        assert response.status_code == 200
+
+        # Verify it's unchecked
+        with Session(engine) as session:
+            staple = session.get(Staple, staple_id)
+            assert staple.is_checked == False
+
+    def test_empty_staples_configuration_page(self, client):
+        # Test that empty staples page shows appropriate message
+        response = client.get('/staples')
+        assert response.status_code == 200
+        response_text = response.data.decode('utf-8')
+        assert "STAPLES CONFIGURATION" in response_text
+        assert "Add staples that you want to include" in response_text

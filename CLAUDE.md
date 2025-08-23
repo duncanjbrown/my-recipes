@@ -22,6 +22,8 @@ Run the tests using `uv run pytest`.
 
 Test-driven development using pytest. Write an end-to-end test before implementing each user story. As you fill out the code, write further, more granular tests as appropriate.
 
+ALWAYS write the test first!
+
 ## Code style
 
 Use object-oriented programming.

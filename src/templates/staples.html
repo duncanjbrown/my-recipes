@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Staples Configuration - MyRecipes</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body {
+            font-family: serif;
+            margin: 0;
+            padding: 20px;
+            background: white;
+            color: black;
+        }
+
+        h1 {
+            margin-top: 0;
+            font-weight: bold;
+            text-decoration: underline;
+        }
+
+        .add-staple-form {
+            border: 2px solid black;
+            padding: 15px;
+            margin-bottom: 20px;
+            background: white;
+        }
+
+        .add-staple-form input[type="text"] {
+            width: 70%;
+            padding: 8px;
+            border: 2px solid black;
+            font-family: serif;
+            font-size: 14px;
+            box-sizing: border-box;
+            margin-right: 10px;
+        }
+
+        .add-staple-form input[type="submit"] {
+            background: white;
+            border: 2px solid black;
+            padding: 8px 16px;
+            font-family: serif;
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        .add-staple-form input[type="submit"]:hover {
+            background: black;
+            color: white;
+        }
+
+        .staple-item {
+            border: 2px solid black;
+            margin-bottom: 10px;
+            padding: 15px;
+            background: white;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .staple-info {
+            display: flex;
+            align-items: center;
+        }
+
+        .staple-checkbox {
+            margin-right: 15px;
+            width: 20px;
+            height: 20px;
+            border: 2px solid black;
+            background: white;
+        }
+
+        .staple-name {
+            font-size: 16px;
+            font-weight: bold;
+        }
+
+        .staple-name.checked {
+            text-decoration: line-through;
+            color: #666;
+        }
+
+        .remove-btn {
+            background: white;
+            border: 2px solid black;
+            padding: 6px 12px;
+            font-family: serif;
+            font-size: 12px;
+            cursor: pointer;
+        }
+
+        .remove-btn:hover {
+            background: black;
+            color: white;
+        }
+
+        .back-btn {
+            background: white;
+            border: 2px solid black;
+            padding: 8px 16px;
+            font-family: serif;
+            font-size: 14px;
+            text-decoration: none;
+            color: black;
+            display: inline-block;
+            margin-bottom: 20px;
+        }
+
+        .back-btn:hover {
+            background: black;
+            color: white;
+        }
+
+        .no-staples {
+            text-align: center;
+            font-style: italic;
+            margin-top: 50px;
+        }
+
+        .toggle-btn {
+            background: white;
+            border: none;
+            cursor: pointer;
+            display: contents;
+        }
+    </style>
+</head>
+
+<body>
+    <a href="/" class="back-btn">← BACK TO RECIPES</a>
+    
+    <h1>STAPLES CONFIGURATION</h1>
+
+    <form method="POST" action="/staples/add" class="add-staple-form">
+        <strong>ADD NEW STAPLE:</strong><br><br>
+        <input type="text" name="name" placeholder="Enter staple name (e.g., Salt, Pepper, Oil)" required>
+        <input type="submit" value="ADD STAPLE">
+    </form>
+
+    {% if staples %}
+        <div style="margin-bottom: 20px; font-size: 14px; color: #666;">
+            <strong>Instructions:</strong> Check off staples you already have. They won't be included in your shopping list.
+        </div>
+        {% for staple in staples %}
+        <div class="staple-item">
+            <div class="staple-info">
+                <form method="POST" action="/staples/toggle/{{ staple.id }}" class="toggle-btn">
+                    <input type="checkbox" class="staple-checkbox" 
+                           {% if staple.is_checked %}checked{% endif %}
+                           onchange="this.form.submit()">
+                </form>
+                <div class="staple-name {% if staple.is_checked %}checked{% endif %}">
+                    {{ staple.name }}
+                </div>
+            </div>
+            
+            <form method="POST" action="/staples/remove/{{ staple.id }}" style="margin: 0;">
+                <button type="submit" class="remove-btn" 
+                        onclick="return confirm('Remove {{ staple.name }} from staples?')">
+                    REMOVE
+                </button>
+            </form>
+        </div>
+        {% endfor %}
+    {% else %}
+    <div class="no-staples">
+        Add staples that you want to include in your shopping lists.<br>
+        Common staples: Bread, Salt, Pepper, Olive Oil, Onions, Garlic
+    </div>
+    {% endif %}
+</body>
+
+</html>

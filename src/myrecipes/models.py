@@ -51,6 +51,13 @@ class RecipeList(SQLModel, table=True):
         back_populates="recipe_lists", link_model=RecipeListRecipe)
 
 
+class Staple(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    name: str
+    is_checked: bool = Field(default=False)
+    created_at: datetime = Field(default_factory=datetime.now)
+
+
 engine = None
 
 if config.environment == "test":

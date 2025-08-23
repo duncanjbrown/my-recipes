@@ -206,13 +206,25 @@
                 </div>
                 {% endfor %}
                 
-                <a href="/generate-shopping-list/{{ viewing_list.id }}" class="generate-shopping-list-btn" style="display: inline-block; margin-top: 15px; background: white; border: 2px solid black; padding: 8px 16px; font-family: serif; font-size: 14px; text-decoration: none; color: black;">
-                    GENERATE SHOPPING LIST
-                </a>
-                
-                <a href="/" style="display: inline-block; margin-top: 15px; margin-left: 10px; background: white; border: 2px solid black; padding: 8px 16px; font-family: serif; font-size: 14px; text-decoration: none; color: black;">
-                    BACK TO CURRENT
-                </a>
+                <div style="margin-top: 15px;">
+                    <form method="POST" action="/generate-shopping-list/{{ viewing_list.id }}" style="display: inline-block; margin-right: 10px;">
+                        <div style="margin-bottom: 5px;">
+                            <label style="font-size: 12px;">
+                                <input type="checkbox" name="include_staples" style="margin-right: 5px;">
+                                Include staples
+                                <a href="/staples" style="color: blue; text-decoration: underline; margin-left: 3px; font-size: 11px;">(configure)</a>
+                            </label>
+                        </div>
+                        <input type="submit" value="GENERATE SHOPPING LIST" class="generate-shopping-list-btn" style="background: white; border: 2px solid black; padding: 8px 16px; font-family: serif; font-size: 14px; cursor: pointer;">
+                    </form>
+                    
+                    <div style="display: inline-block;">
+                        <div style="margin-bottom: 5px; height: 16px;"></div>
+                        <a href="/" style="background: white; border: 2px solid black; padding: 8px 16px; font-family: serif; font-size: 14px; text-decoration: none; color: black;">
+                            BACK TO CURRENT
+                        </a>
+                    </div>
+                </div>
             </div>
             
             {% elif current_list and current_list.recipes %}
@@ -225,15 +237,25 @@
                 </div>
                 {% endfor %}
                 
-                <a href="/generate-shopping-list/{{ current_list.id }}" class="generate-shopping-list-btn" style="display: inline-block; margin-top: 15px; background: white; border: 2px solid black; padding: 8px 16px; font-family: serif; font-size: 14px; text-decoration: none; color: black;">
-                    GENERATE SHOPPING LIST
-                </a>
-                
-                <form method="POST" action="/start-new-list" style="display: inline-block; margin-top: 15px; margin-left: 10px;">
-                    <button type="submit" style="background: white; border: 2px solid black; padding: 8px 16px; font-family: serif; font-size: 14px; cursor: pointer;">
-                        START NEW LIST
-                    </button>
-                </form>
+                <div style="margin-top: 15px;">
+                    <form method="POST" action="/generate-shopping-list/{{ current_list.id }}" style="display: inline-block; margin-right: 10px;">
+                        <div style="margin-bottom: 5px;">
+                            <label style="font-size: 12px;">
+                                <input type="checkbox" name="include_staples" style="margin-right: 5px;">
+                                Include staples
+                                <a href="/staples" style="color: blue; text-decoration: underline; margin-left: 3px; font-size: 11px;">(configure)</a>
+                            </label>
+                        </div>
+                        <input type="submit" value="GENERATE SHOPPING LIST" class="generate-shopping-list-btn" style="background: white; border: 2px solid black; padding: 8px 16px; font-family: serif; font-size: 14px; cursor: pointer;">
+                    </form>
+                    
+                    <form method="POST" action="/start-new-list" style="display: inline-block;">
+                        <div style="margin-bottom: 5px; height: 16px;"></div>
+                        <button type="submit" style="background: white; border: 2px solid black; padding: 8px 16px; font-family: serif; font-size: 14px; cursor: pointer;">
+                            START NEW LIST
+                        </button>
+                    </form>
+                </div>
             </div>
             
             {% else %}

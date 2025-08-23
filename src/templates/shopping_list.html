@@ -60,6 +60,7 @@
         {% for recipe in recipe_list.recipes %}{{ recipe.title }}{% if not loop.last %}, {% endif %}{% endfor %}</em>
     </div>
 
+    <!-- Display the generated shopping list -->
     <div class="shopping-list">{{ shopping_list }}</div>
 </body>
 
