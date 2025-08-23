@@ -143,6 +143,17 @@
             font-size: 16px;
             font-weight: bold;
         }
+
+        .highlight {
+            background-color: yellow;
+            font-weight: bold;
+        }
+
+        .no-results {
+            text-align: center;
+            font-style: italic;
+            margin-top: 50px;
+        }
     </style>
     <script>
         function handleKeyDown(event) {
@@ -152,6 +163,142 @@
                 event.target.form.submit();
             }
         }
+
+        let searchTimeout;
+        let allRecipes = [];
+
+        // Store original recipes on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            const recipeElements = document.querySelectorAll('.recipe-item');
+            allRecipes = Array.from(recipeElements).map(element => {
+                return {
+                    id: element.dataset.recipeId,
+                    title: element.querySelector('.recipe-title').textContent,
+                    url: element.querySelector('.recipe-url') ? element.querySelector('.recipe-url').textContent : '',
+                    ingredients: Array.from(element.querySelectorAll('.recipe-ingredients li')).map(li => li.textContent),
+                    instructions: element.querySelector('.recipe-instructions') ? element.querySelector('.recipe-instructions').textContent : '',
+                    element: element
+                };
+            });
+
+            const searchInput = document.getElementById('recipe-search');
+            if (searchInput) {
+                searchInput.addEventListener('input', function() {
+                    clearTimeout(searchTimeout);
+                    searchTimeout = setTimeout(() => {
+                        performSearch(this.value.trim());
+                    }, 300);
+                });
+            }
+        });
+
+        function performSearch(query) {
+            const container = document.getElementById('recipes-container');
+            
+            if (!query) {
+                // Show all recipes
+                allRecipes.forEach(recipe => {
+                    recipe.element.style.display = 'block';
+                    clearHighlights(recipe.element);
+                });
+                return;
+            }
+
+            const searchTerms = query.toLowerCase().split(' ').filter(term => term.length > 0);
+            let visibleCount = 0;
+
+            allRecipes.forEach(recipe => {
+                const titleMatch = searchTerms.some(term => 
+                    recipe.title.toLowerCase().includes(term)
+                );
+                const ingredientsMatch = searchTerms.some(term =>
+                    recipe.ingredients.some(ingredient => 
+                        ingredient.toLowerCase().includes(term)
+                    )
+                );
+
+                if (titleMatch || ingredientsMatch) {
+                    recipe.element.style.display = 'block';
+                    highlightTerms(recipe.element, searchTerms);
+                    visibleCount++;
+                } else {
+                    recipe.element.style.display = 'none';
+                }
+            });
+
+            // Show "no results" message if no recipes match
+            let noResultsDiv = container.querySelector('.no-results');
+            if (visibleCount === 0) {
+                if (!noResultsDiv) {
+                    noResultsDiv = document.createElement('div');
+                    noResultsDiv.className = 'no-results';
+                    noResultsDiv.textContent = 'NO RECIPES MATCH YOUR SEARCH';
+                    container.appendChild(noResultsDiv);
+                }
+                noResultsDiv.style.display = 'block';
+            } else if (noResultsDiv) {
+                noResultsDiv.style.display = 'none';
+            }
+        }
+
+        function highlightTerms(element, searchTerms) {
+            clearHighlights(element);
+            
+            const textNodes = getTextNodes(element);
+            textNodes.forEach(node => {
+                let text = node.textContent;
+                let highlightedText = text;
+                
+                searchTerms.forEach(term => {
+                    const regex = new RegExp(`(${escapeRegex(term)})`, 'gi');
+                    highlightedText = highlightedText.replace(regex, '<span class="highlight">$1</span>');
+                });
+                
+                if (highlightedText !== text) {
+                    const wrapper = document.createElement('span');
+                    wrapper.innerHTML = highlightedText;
+                    node.parentNode.replaceChild(wrapper, node);
+                }
+            });
+        }
+
+        function clearHighlights(element) {
+            const highlights = element.querySelectorAll('.highlight');
+            highlights.forEach(highlight => {
+                const parent = highlight.parentNode;
+                parent.replaceChild(document.createTextNode(highlight.textContent), highlight);
+                parent.normalize();
+            });
+        }
+
+        function getTextNodes(element) {
+            const textNodes = [];
+            const walker = document.createTreeWalker(
+                element,
+                NodeFilter.SHOW_TEXT,
+                {
+                    acceptNode: function(node) {
+                        // Skip text nodes in script, style, and form elements
+                        const parent = node.parentElement;
+                        if (parent && (parent.tagName === 'SCRIPT' || parent.tagName === 'STYLE' || parent.tagName === 'FORM')) {
+                            return NodeFilter.FILTER_REJECT;
+                        }
+                        return node.textContent.trim() ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+                    }
+                }
+            );
+            
+            let node;
+            while (node = walker.nextNode()) {
+                textNodes.push(node);
+            }
+            
+            return textNodes;
+        }
+
+        function escapeRegex(string) {
+            return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        }
     </script>
 </head>
 
@@ -160,15 +307,20 @@
         <div class="left-pane">
             <h1>RECIPES</h1>
 
+            <div class="search-bar" style="border: 2px solid black; padding: 15px; margin-bottom: 20px; background: white;">
+                <input type="text" id="recipe-search" placeholder="Search recipes by title and ingredients..." style="width: 100%; padding: 8px; border: 2px solid black; font-family: serif; font-size: 14px; box-sizing: border-box;">
+            </div>
+
             <form method="POST" action="/add-recipe" class="add-recipe-form">
                 <strong>ADD RECIPES FROM URLs:</strong><br><br>
                 <textarea name="url" placeholder="Enter recipe URLs, one per line (e.g., https://example.com/recipe1&#10;https://example.com/recipe2)&#10;&#10;Press Cmd+Enter to submit" required onkeydown="handleKeyDown(event)"></textarea>
                 <input type="submit" value="FETCH RECIPES">
             </form>
 
+            <div id="recipes-container">
             {% if recipes %}
             {% for recipe in recipes %}
-            <div class="recipe-item">
+            <div class="recipe-item" data-recipe-id="{{ recipe.id }}">
                 <div class="recipe-title">{{ recipe.title }}</div>
 
                 {% if recipe.url %}
@@ -203,6 +355,7 @@
                 NO RECIPES FOUND
             </div>
             {% endif %}
+            </div>
         </div>
 
         <div class="right-pane">

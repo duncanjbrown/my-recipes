@@ -280,5 +280,33 @@ def toggle_staple(staple_id):
     return redirect(url_for('staples_config'))
 
 
+@app.route('/api/search-recipes')
+def search_recipes():
+    query = request.args.get('q', '').strip()
+    if not query:
+        return jsonify([])
+    
+    with Session(engine) as session:
+        # Search in title and ingredients using LIKE for SQLite
+        statement = select(Recipe).where(
+            (Recipe.title.like(f'%{query}%')) | 
+            (Recipe.ingredients.like(f'%{query}%'))
+        )
+        recipes = list(session.exec(statement))
+        
+        # Convert to JSON-serializable format
+        result = []
+        for recipe in recipes:
+            result.append({
+                'id': recipe.id,
+                'title': recipe.title,
+                'url': recipe.url,
+                'ingredients_list': recipe.ingredients_list,
+                'instructions': recipe.instructions
+            })
+        
+        return jsonify(result)
+
+
 if __name__ == "__main__":
     app.run(debug=True)
