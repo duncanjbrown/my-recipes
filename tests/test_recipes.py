@@ -602,3 +602,158 @@ PANTRY/DRY GOODS
             assert tomatoes is not None
             assert basil is not None
             assert mozzarella is not None
+
+
+class TestMultipleRecipeAdding:
+    @pytest.fixture
+    def client(self):
+        create_tables()
+        with app.test_client() as client:
+            yield client
+
+    def test_add_multiple_recipes_from_urls(self, client):
+        # Mock multiple recipe URLs
+        mock_responses = {
+            'https://example.com/recipe1': {
+                'title': 'Chocolate Cake',
+                'ingredients': ['2 cups flour', '1 cup sugar', '3 eggs'],
+                'instructions': 'Mix and bake at 350°F',
+                'image': None
+            },
+            'https://example.com/recipe2': {
+                'title': 'Vanilla Cookies',
+                'ingredients': ['1 cup butter', '2 cups flour', '1/2 cup sugar'],
+                'instructions': 'Mix, roll, and bake',
+                'image': None
+            },
+            'https://example.com/recipe3': {
+                'title': 'Fruit Salad',
+                'ingredients': ['3 apples', '2 oranges', '1 cup grapes'],
+                'instructions': 'Chop and mix fruits',
+                'image': None
+            }
+        }
+        
+        # Mock the recipe scraper
+        def mock_scrape_me(url):
+            mock = MagicMock()
+            recipe_data = mock_responses.get(url, mock_responses['https://example.com/recipe1'])
+            mock.title.return_value = recipe_data['title']
+            mock.ingredients.return_value = recipe_data['ingredients']
+            mock.instructions.return_value = recipe_data['instructions']
+            mock.image.return_value = recipe_data['image']
+            return mock
+        
+        with patch('myrecipes.main.scrape_me', side_effect=mock_scrape_me):
+            # Test multiline URLs
+            urls_input = "https://example.com/recipe1\nhttps://example.com/recipe2\nhttps://example.com/recipe3"
+            response = client.post('/add-recipe', data={'url': urls_input}, follow_redirects=True)
+            assert response.status_code == 200
+            
+            # Verify all three recipes were added to database
+            with Session(engine) as session:
+                recipes = list(session.exec(select(Recipe)))
+                assert len(recipes) == 3
+                
+                # Check that all expected recipes are present
+                titles = {recipe.title for recipe in recipes}
+                assert 'Chocolate Cake' in titles
+                assert 'Vanilla Cookies' in titles
+                assert 'Fruit Salad' in titles
+                
+                # Check that URLs are correct
+                urls = {recipe.url for recipe in recipes}
+                assert 'https://example.com/recipe1' in urls
+                assert 'https://example.com/recipe2' in urls
+                assert 'https://example.com/recipe3' in urls
+
+    def test_add_multiple_recipes_with_empty_lines_and_whitespace(self, client):
+        # Mock recipe scraper
+        def mock_scrape_me(url):
+            mock = MagicMock()
+            if 'recipe1' in url:
+                mock.title.return_value = 'Recipe One'
+            elif 'recipe2' in url:
+                mock.title.return_value = 'Recipe Two'
+            else:
+                mock.title.return_value = 'Default Recipe'
+            mock.ingredients.return_value = ['ingredient1', 'ingredient2']
+            mock.instructions.return_value = 'Instructions here'
+            mock.image.return_value = None
+            return mock
+        
+        with patch('myrecipes.main.scrape_me', side_effect=mock_scrape_me):
+            # Test multiline URLs with empty lines and extra whitespace
+            urls_input = "  https://example.com/recipe1  \n\n  \nhttps://example.com/recipe2\n\n  \n  "
+            response = client.post('/add-recipe', data={'url': urls_input}, follow_redirects=True)
+            assert response.status_code == 200
+            
+            # Verify only valid URLs were processed
+            with Session(engine) as session:
+                recipes = list(session.exec(select(Recipe)))
+                assert len(recipes) == 2
+                
+                titles = {recipe.title for recipe in recipes}
+                assert 'Recipe One' in titles
+                assert 'Recipe Two' in titles
+
+    def test_single_recipe_url_still_works(self, client):
+        # Ensure backward compatibility with single URL
+        def mock_scrape_me(url):
+            mock = MagicMock()
+            mock.title.return_value = 'Single Recipe'
+            mock.ingredients.return_value = ['flour', 'eggs']
+            mock.instructions.return_value = 'Mix and bake'
+            mock.image.return_value = None
+            return mock
+        
+        with patch('myrecipes.main.scrape_me', side_effect=mock_scrape_me):
+            response = client.post('/add-recipe', data={'url': 'https://example.com/single-recipe'}, follow_redirects=True)
+            assert response.status_code == 200
+            
+            with Session(engine) as session:
+                recipes = list(session.exec(select(Recipe)))
+                assert len(recipes) == 1
+                assert recipes[0].title == 'Single Recipe'
+
+    def test_empty_recipe_url_input(self, client):
+        # Test empty input handling
+        response = client.post('/add-recipe', data={'url': ''}, follow_redirects=True)
+        assert response.status_code == 200
+        
+        with Session(engine) as session:
+            recipes = list(session.exec(select(Recipe)))
+            assert len(recipes) == 0
+
+    def test_add_multiple_recipes_with_scraping_errors(self, client):
+        # Test that one failing recipe doesn't stop others from being added
+        def mock_scrape_me(url):
+            mock = MagicMock()
+            if 'bad-recipe' in url:
+                raise Exception("Failed to scrape recipe")
+            elif 'recipe1' in url:
+                mock.title.return_value = 'Good Recipe'
+                mock.ingredients.return_value = ['ingredient']
+                mock.instructions.return_value = 'instructions'
+                mock.image.return_value = None
+                return mock
+            else:
+                mock.title.return_value = 'Another Good Recipe'
+                mock.ingredients.return_value = ['ingredient']
+                mock.instructions.return_value = 'instructions'
+                mock.image.return_value = None
+                return mock
+        
+        with patch('myrecipes.main.scrape_me', side_effect=mock_scrape_me):
+            urls_input = "https://example.com/recipe1\nhttps://example.com/bad-recipe\nhttps://example.com/recipe2"
+            response = client.post('/add-recipe', data={'url': urls_input}, follow_redirects=True)
+            assert response.status_code == 200
+            
+            # Should have added 2 recipes (ignoring the failed one)
+            with Session(engine) as session:
+                recipes = list(session.exec(select(Recipe)))
+                assert len(recipes) == 2
+                
+                titles = {recipe.title for recipe in recipes}
+                assert 'Good Recipe' in titles
+                assert 'Another Good Recipe' in titles

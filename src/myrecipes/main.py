@@ -39,29 +39,35 @@ def index():
 
 @app.route('/add-recipe', methods=['POST'])
 def add_recipe():
-    url = request.form.get('url')
-    if not url:
+    urls_input = request.form.get('url')
+    if not urls_input or not urls_input.strip():
         return redirect(url_for('index'))
 
-    try:
-        scraper = scrape_me(url)
+    # Split by lines and clean up each URL
+    urls = [url.strip() for url in urls_input.strip().split('\n') if url.strip()]
 
-        recipe = Recipe(
-            title=scraper.title(),
-            url=url,
-            instructions=scraper.instructions()
-        )
-        recipe.ingredients_list = scraper.ingredients()
+    with Session(engine) as session:
+        for url in urls:
+            try:
+                scraper = scrape_me(url)
 
-        if hasattr(scraper, 'image') and scraper.image():
-            recipe.image_url = scraper.image()
+                recipe = Recipe(
+                    title=scraper.title(),
+                    url=url,
+                    instructions=scraper.instructions()
+                )
+                recipe.ingredients_list = scraper.ingredients()
 
-        with Session(engine) as session:
-            session.add(recipe)
-            session.commit()
+                if hasattr(scraper, 'image') and scraper.image():
+                    recipe.image_url = scraper.image()
 
-    except Exception as e:
-        print(f"Error fetching recipe: {e}")
+                session.add(recipe)
+
+            except Exception as e:
+                print(f"Error fetching recipe from {url}: {e}")
+                # Continue with next URL even if one fails
+
+        session.commit()
 
     return redirect(url_for('index'))
 

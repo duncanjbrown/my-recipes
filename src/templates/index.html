@@ -85,7 +85,7 @@
             background: white;
         }
 
-        .add-recipe-form input[type="url"] {
+        .add-recipe-form textarea {
             width: 100%;
             padding: 8px;
             border: 2px solid black;
@@ -93,6 +93,9 @@
             font-size: 14px;
             box-sizing: border-box;
             margin-bottom: 10px;
+            resize: vertical;
+            min-height: 60px;
+            display: block;
         }
 
         .add-recipe-form input[type="submit"] {
@@ -141,6 +144,15 @@
             font-weight: bold;
         }
     </style>
+    <script>
+        function handleKeyDown(event) {
+            // Check for Cmd+Enter (Mac) or Ctrl+Enter (PC)
+            if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
+                event.preventDefault();
+                event.target.form.submit();
+            }
+        }
+    </script>
 </head>
 
 <body>
@@ -149,9 +161,9 @@
             <h1>RECIPES</h1>
 
             <form method="POST" action="/add-recipe" class="add-recipe-form">
-                <strong>ADD RECIPE FROM URL:</strong><br><br>
-                <input type="url" name="url" placeholder="https://example.com/recipe" required>
-                <input type="submit" value="FETCH RECIPE">
+                <strong>ADD RECIPES FROM URLs:</strong><br><br>
+                <textarea name="url" placeholder="Enter recipe URLs, one per line (e.g., https://example.com/recipe1&#10;https://example.com/recipe2)&#10;&#10;Press Cmd+Enter to submit" required onkeydown="handleKeyDown(event)"></textarea>
+                <input type="submit" value="FETCH RECIPES">
             </form>
 
             {% if recipes %}
