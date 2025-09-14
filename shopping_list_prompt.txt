@@ -8,4 +8,4 @@ Please generate a consolidated shopping list that:
 2. Groups ingredients by supermarket section (Produce, Dairy, Meat & Seafood, Pantry/Dry Goods, Frozen, etc.)
 3. Present the final list in a clear, organized format
 
-Format the response as a shopping list with clear section headings.
+Format the response as a shopping list with clear section headings. Do not use markdown.

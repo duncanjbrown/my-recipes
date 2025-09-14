@@ -139,8 +139,8 @@ def generate_shopping_list(recipe_list, include_staples=False):
 
     try:
         message = anthropic_client.messages.create(
-            model="claude-3-haiku-20240307",
-            max_tokens=1000,
+            model="claude-sonnet-4-20250514",
+            max_tokens=10000,
             messages=[{
                 "role": "user",
                 "content": prompt
